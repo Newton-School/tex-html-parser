@@ -7,5 +7,3 @@ coverage/
 npm-debug.log*
 .DS_Store
 .vscode/
-consumer-app/node_modules/
-consumer-app/dist/
