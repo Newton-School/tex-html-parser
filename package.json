@@ -1,0 +1,45 @@
+{
+  "name": "tex-html-parser",
+  "version": "0.1.0",
+  "description": "TypeScript parser/transformer for TeX-to-HTML rendering.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.lib.config.js && tsc --project tsconfig.build.json",
+    "test": "node scripts/run-tests.mjs",
+    "test:package": "node scripts/run-tests.mjs test/package-artifacts.test.ts",
+    "prepublishOnly": "npm run test && npm run build && npm run test:package"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.10"
+  },
+  "keywords": [
+    "tex",
+    "latex",
+    "html",
+    "parser",
+    "sanitizer"
+  ],
+  "license": "MIT"
+}
