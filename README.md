@@ -83,6 +83,18 @@ npm run build
 npm run test:package
 ```
 
+## Consumer App (Left TeX / Right Preview)
+
+```bash
+cd consumer-app
+npm install
+npm run dev
+```
+
+This opens a local playground where:
+- left panel = TeX statement editor
+- right panel = rendered HTML + MathJax preview
+
 Publish checks:
 
 ```bash
