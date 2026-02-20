@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.test-build/
+coverage/
+.npm-cache/
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+

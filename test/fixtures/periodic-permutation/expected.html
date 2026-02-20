@@ -1,0 +1,13 @@
+<p><strong>Periodic Permutation</strong></p><p>Rahul was gifted a $permutation$ $P$ for his birthday. A $permutation$ of size $N$ is an array consisting of $all$ integers from $1$ to $N$, each occurring exactly once.</p><p>Rahul can perform the following operation as many times as he wants:</p><ul><li>Simultaneously for all $i$ $(1 \leq i \leq N)$, set $P[i] = P[P[i]]$.</li></ul><p>Rahul wants to know the minimum number of operations required for the $permutation$ to return to its original state, or whether it is even possible to do so.</p><p><strong>Input</strong></p><p>The first line contains a single integer $T$ $(1 &lt;= T &lt;= 100000)$ --- the number of test cases.</p><p>Each test case consists of two lines:</p><ul><li>The first line contains a single integer $N$ $(1 &lt;= N &lt;= 1000000)$ --- the length of the $permutation$.</li><li>The second line contains $N$ space-separated integers $P_1, P_2, \dots, P_N$, $(1 &lt;= P_i &lt;= N)$ representing the $permutation$ $P$.</li></ul><p>It is guaranteed that the sum of $N$ over all test cases does not exceed $10^6$.</p><p><strong>Output</strong></p><p>For each test case, print on a new line:  —  Print $-1$ if the $permutation$ cannot return to its original state after any number of operations, else print the minimum number of operations required for the $permutation$ to return to its original state. Since this number may be large, print it modulo $100000007$.</p><p><strong>Example</strong></p><pre><code>Input
+3
+1
+1
+2
+1 2
+2
+2 1
+
+Output
+1
+1
+-1</code></pre>
