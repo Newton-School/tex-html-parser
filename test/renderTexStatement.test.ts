@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { renderTexStatement } from '../src/index.ts'
+import { renderTexStatement } from '../src/index'
 
 function loadFixture(path: string): string {
   return readFileSync(resolve(path), 'utf8')
