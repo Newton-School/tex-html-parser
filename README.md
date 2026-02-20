@@ -18,8 +18,22 @@ const html = renderTexStatement(tex)
 
 - Input: `tex: string`
 - Output: `string` (sanitized HTML)
+- `renderTexStatement` is side-effect free by default.
 
-In browser environments, MathJax is auto-loaded and typeset is auto-triggered after render calls, so `$...$` and `$$...$$` are visually formatted without app-level MathJax wiring.
+To opt into MathJax rendering in browsers:
+
+```ts
+const html = renderTexStatement(tex, { typeset: true })
+```
+
+To scope MathJax work to a specific container:
+
+```ts
+const html = renderTexStatement(tex, {
+  typeset: true,
+  typesetTarget: containerElement,
+})
+```
 
 MathJax loader security notes:
 

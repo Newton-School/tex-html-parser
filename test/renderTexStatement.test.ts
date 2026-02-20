@@ -66,6 +66,18 @@ test('renders url and href links with safe attributes', () => {
   assert.match(html, /rel="noopener noreferrer"/)
 })
 
+test('blocks protocol-relative links in href/url commands', () => {
+  const html = renderTexStatement('Unsafe \\href{//evil.com}{bad} and \\url{//evil.com}.')
+
+  assert.doesNotMatch(html, /href="\/\/evil\.com"/)
+  assert.match(html, /<a[^>]*>bad<\/a>/)
+})
+
+test('keeps parser output stable when typesetting is opt-in', () => {
+  const html = renderTexStatement('Inline $a+b$', { typeset: true })
+  assert.equal(html, '<p>Inline $a+b$</p>')
+})
+
 test('falls back safely for unsupported commands', () => {
   const html = renderTexStatement('Alpha \\unknown{test} omega.')
   assert.match(html, /Alpha \\unknown\{test\} omega\./)

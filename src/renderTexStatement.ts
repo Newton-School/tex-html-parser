@@ -8,6 +8,13 @@ type InlineCommandResult = {
   end: number
 }
 
+export type RenderTexStatementOptions = {
+  // MathJax typesetting is opt-in to keep parsing side-effect free by default.
+  typeset?: boolean
+  // Optional container(s) to scope MathJax typesetting instead of whole document.
+  typesetTarget?: Element | Element[] | null
+}
+
 type MathJaxLike = {
   typesetPromise?: (elements?: Element[]) => Promise<unknown>
   typesetClear?: (elements?: Element[]) => void
@@ -85,6 +92,8 @@ const ALLOWED_ATTRS_BY_TAG: Record<string, Set<string>> = {
 
 let mathJaxLoadPromise: Promise<MathJaxLike | null> | null = null
 let mathJaxTypesetScheduled = false
+let pendingMathJaxTargets: Element[] | null = null
+let pendingMathJaxGlobalTypeset = false
 const MATHJAX_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js'
 const MATHJAX_SCRIPT_INTEGRITY = ''
 const MATHJAX_LOAD_TIMEOUT_MS = 8000
@@ -92,19 +101,30 @@ const MATHJAX_LOAD_TIMEOUT_MS = 8000
 /**
  * Convert TeX/LaTeX text into sanitized HTML.
  *
- * The function keeps math payloads (`$...$`, `$$...$$`) intact in output and,
- * in browsers, schedules a best-effort MathJax typeset pass.
+ * The function keeps math payloads (`$...$`, `$$...$$`) intact in output.
+ * MathJax typesetting is opt-in through options to keep this parser pure.
  */
-export function renderTexStatement(tex: string): string {
+export function renderTexStatement(tex: string, options: RenderTexStatementOptions = {}): string {
   const normalized = String(tex ?? '').replace(/\r\n/g, '\n')
   const rawHtml = parseBlocks(normalized).join('')
   const html = sanitizeHtml(rawHtml)
 
-  // Keep parser API string-only while still enabling automatic math rendering
-  // in browser consumers that inject this HTML.
-  scheduleGlobalMathTypeset()
+  if (options.typeset) {
+    const scopedTargets = normalizeTypesetTargets(options.typesetTarget)
+    scheduleGlobalMathTypeset(scopedTargets)
+  }
 
   return html
+}
+
+function normalizeTypesetTargets(typesetTarget: RenderTexStatementOptions['typesetTarget']): Element[] | undefined {
+  if (!typesetTarget) {
+    return undefined
+  }
+
+  const candidates = Array.isArray(typesetTarget) ? typesetTarget : [typesetTarget]
+  const targets = candidates.filter((target): target is Element => Boolean(target))
+  return targets.length > 0 ? targets : undefined
 }
 
 /**
@@ -774,7 +794,10 @@ function sanitizeUrl(url: string): string {
     return ''
   }
 
-  return /^(https?:\/\/|mailto:|\/|#)/i.test(trimmed) ? trimmed : ''
+  const isAllowedProtocol = /^(https?:\/\/|mailto:|#)/i.test(trimmed)
+  const isSafeRelativePath = /^\/(?!\/)/.test(trimmed)
+
+  return isAllowedProtocol || isSafeRelativePath ? trimmed : ''
 }
 
 function escapeHtml(value: string): string {
@@ -790,9 +813,20 @@ function escapeHtml(value: string): string {
  * Debounced global typeset trigger. It runs once per animation frame
  * regardless of how many render calls happen in that frame.
  */
-function scheduleGlobalMathTypeset(): void {
+function scheduleGlobalMathTypeset(targets?: Element[]): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return
+  }
+
+  if (targets && targets.length > 0) {
+    const uniqueTargets = new Set(pendingMathJaxTargets ?? [])
+    for (const target of targets) {
+      uniqueTargets.add(target)
+    }
+    pendingMathJaxTargets = [...uniqueTargets]
+  } else {
+    pendingMathJaxGlobalTypeset = true
+    pendingMathJaxTargets = null
   }
 
   if (mathJaxTypesetScheduled) {
@@ -803,6 +837,7 @@ function scheduleGlobalMathTypeset(): void {
   const runTypeset = async (): Promise<void> => {
     mathJaxTypesetScheduled = false
     const mathJax = await ensureMathJax()
+    const scopedTargets = selectTypesetTargetsForRun()
     if (!mathJax?.typesetPromise) {
       return
     }
@@ -810,9 +845,9 @@ function scheduleGlobalMathTypeset(): void {
     try {
       if (mathJax.typesetClear) {
         // Avoid stale state from previous typesets.
-        mathJax.typesetClear()
+        mathJax.typesetClear(scopedTargets)
       }
-      await mathJax.typesetPromise()
+      await mathJax.typesetPromise(scopedTargets)
     } catch {
       // Keep rendering non-blocking if MathJax fails to typeset.
     }
@@ -828,6 +863,36 @@ function scheduleGlobalMathTypeset(): void {
   setTimeout(() => {
     void runTypeset()
   }, 0)
+}
+
+function selectTypesetTargetsForRun(): Element[] | undefined {
+  if (pendingMathJaxGlobalTypeset) {
+    pendingMathJaxGlobalTypeset = false
+    pendingMathJaxTargets = null
+    return undefined
+  }
+
+  const scopedTargets = pendingMathJaxTargets ?? undefined
+  pendingMathJaxTargets = null
+  return scopedTargets
+}
+
+function findExistingMathJaxScript(): HTMLScriptElement | null {
+  const selectors = [
+    'script[data-mathjax="tex-renderer"]',
+    'script#MathJax-script',
+    'script[src*="mathjax"][src*="tex-mml-chtml"]',
+    'script[src*="MathJax.js"]',
+  ]
+
+  for (const selector of selectors) {
+    const candidate = document.querySelector(selector)
+    if (candidate instanceof HTMLScriptElement) {
+      return candidate
+    }
+  }
+
+  return null
 }
 
 /**
@@ -859,8 +924,9 @@ function ensureMathJax(): Promise<MathJaxLike | null> {
   }
 
   mathJaxLoadPromise = new Promise<MathJaxLike | null>((resolve, reject) => {
-    const existing = document.querySelector('script[data-mathjax="tex-renderer"]')
+    const existing = findExistingMathJaxScript()
     let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let settled = false
 
     const clearPendingTimeout = (): void => {
       if (timeoutId !== null) {
@@ -869,14 +935,21 @@ function ensureMathJax(): Promise<MathJaxLike | null> {
       }
     }
 
-    const fail = (): void => {
+    const settle = (callback: () => void): void => {
+      if (settled) {
+        return
+      }
+      settled = true
       clearPendingTimeout()
-      reject(new Error('Failed to load MathJax script'))
+      callback()
+    }
+
+    const fail = (): void => {
+      settle(() => reject(new Error('Failed to load MathJax script')))
     }
 
     const succeed = (): void => {
-      clearPendingTimeout()
-      resolve(window.MathJax ?? null)
+      settle(() => resolve(window.MathJax ?? null))
     }
 
     timeoutId = setTimeout(() => {
@@ -884,12 +957,23 @@ function ensureMathJax(): Promise<MathJaxLike | null> {
     }, MATHJAX_LOAD_TIMEOUT_MS)
 
     if (existing) {
+      if (window.MathJax?.typesetPromise) {
+        succeed()
+        return
+      }
       existing.addEventListener('load', succeed, { once: true })
       existing.addEventListener('error', fail, { once: true })
+      // Existing scripts can already be loaded before listeners are attached.
+      setTimeout(() => {
+        if (window.MathJax?.typesetPromise) {
+          succeed()
+        }
+      }, 0)
       return
     }
 
     const script = document.createElement('script')
+    script.id = 'MathJax-script'
     script.src = MATHJAX_SCRIPT_URL
     script.async = true
     script.crossOrigin = 'anonymous'

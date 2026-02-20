@@ -1,6 +1,5 @@
-import { copyFile, mkdir } from 'node:fs/promises'
+import { access } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { constants } from 'node:fs'
 
-const distDir = resolve('dist')
-await mkdir(distDir, { recursive: true })
-await copyFile(resolve('src/index.d.ts'), resolve(distDir, 'index.d.ts'))
+await access(resolve('dist/index.d.ts'), constants.F_OK)

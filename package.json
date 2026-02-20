@@ -14,14 +14,12 @@
     }
   },
   "files": [
-    "dist/index.cjs",
-    "dist/index.mjs",
-    "dist/index.d.ts",
+    "dist",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "vite build --config vite.lib.config.js && node scripts/build-artifacts.mjs",
+    "build": "vite build --config vite.lib.config.js && tsc --project tsconfig.build.json",
     "test": "node scripts/run-tests.mjs",
     "test:package": "node scripts/run-tests.mjs test/package-artifacts.test.ts",
     "prepublishOnly": "npm run test && npm run build && npm run test:package"
@@ -33,6 +31,7 @@
   "devDependencies": {
     "@types/node": "^25.3.0",
     "esbuild": "^0.25.0",
+    "typescript": "^5.9.3",
     "vite": "^5.4.10"
   },
   "keywords": [

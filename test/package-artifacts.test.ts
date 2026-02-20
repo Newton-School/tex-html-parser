@@ -7,7 +7,12 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 test('build artifacts exist for publish payload', () => {
-  const requiredArtifacts = ['dist/index.mjs', 'dist/index.cjs', 'dist/index.d.ts']
+  const requiredArtifacts = [
+    'dist/index.mjs',
+    'dist/index.cjs',
+    'dist/index.d.ts',
+    'dist/renderTexStatement.d.ts',
+  ]
 
   for (const artifact of requiredArtifacts) {
     assert.equal(existsSync(artifact), true, `${artifact} must exist.`)
@@ -46,7 +51,14 @@ test('npm pack dry-run includes runtime artifacts only', () => {
 
   const files = parsed[0].files.map((entry) => entry.path)
 
-  for (const required of ['dist/index.mjs', 'dist/index.cjs', 'dist/index.d.ts', 'README.md', 'LICENSE']) {
+  for (const required of [
+    'dist/index.mjs',
+    'dist/index.cjs',
+    'dist/index.d.ts',
+    'dist/renderTexStatement.d.ts',
+    'README.md',
+    'LICENSE',
+  ]) {
     assert.equal(files.includes(required), true, `${required} is missing from npm pack payload.`)
   }
 
