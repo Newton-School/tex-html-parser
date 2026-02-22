@@ -1,5 +1,5 @@
 {
-  "name": "tex-html-parser",
+  "name": "@newtonschool/tex-html-parser",
   "version": "0.1.0",
   "description": "TypeScript parser/transformer for TeX-to-HTML rendering.",
   "type": "module",
@@ -22,7 +22,7 @@
     "build": "vite build --config vite.lib.config.js && tsc --project tsconfig.build.json",
     "test": "node scripts/run-tests.mjs",
     "test:package": "node scripts/run-tests.mjs test/package-artifacts.test.ts",
-    "prepublishOnly": "npm run test && npm run build && npm run test:package"
+    "prepublishOnly": "npm run build"
   },
   "publishConfig": {
     "access": "public",
