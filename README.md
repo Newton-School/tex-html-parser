@@ -2,16 +2,22 @@
 
 TypeScript parser/transformer that converts TeX into sanitized HTML.
 
+## What changed
+
+- Package name is now scoped: `@newtonschool/tex-html-parser`.
+- Publish behavior changed: `prepublishOnly` now runs only `npm run build`.
+- Install and import examples have been updated to use the scoped package name.
+
 ## Install
 
 ```bash
-npm install tex-html-parser
+npm install @newtonschool/tex-html-parser
 ```
 
 ## API
 
 ```ts
-import { renderTexStatement } from 'tex-html-parser'
+import { renderTexStatement } from '@newtonschool/tex-html-parser'
 
 const html = renderTexStatement(tex)
 ```
@@ -44,7 +50,7 @@ MathJax loader security notes:
 ## React Usage (`dangerouslySetInnerHTML`)
 
 ```tsx
-import { renderTexStatement } from 'tex-html-parser'
+import { renderTexStatement } from '@newtonschool/tex-html-parser'
 
 function Statement({ tex }: { tex: string }) {
   const html = renderTexStatement(tex)
@@ -75,6 +81,38 @@ function Statement({ tex }: { tex: string }) {
 
 Unsupported or malformed input is rendered best-effort with escaped fallback text.
 
+## Test Cases
+
+Use these cases to validate parser behavior when adding or reviewing changes.
+
+1. Paragraph split:
+Input: `First paragraph.\n\nSecond paragraph.`
+Expected: `<p>First paragraph.</p><p>Second paragraph.</p>`
+
+2. Math preservation:
+Input: `Inline $a+b$ and display $$x^2$$`
+Expected: Math delimiters are preserved in output and escaped safely for HTML.
+
+3. Style command mapping:
+Input: `\textbf{Bold} \textit{Italic} \underline{Underlined}`
+Expected: Uses semantic tags (`<strong>`, `<em>`, `<u>`) in sanitized output.
+
+4. List environments:
+Input: `\begin{itemize}\item One \item Two\end{itemize}`
+Expected: Ordered/unordered list environments render into `<ul>/<ol>` with `<li>`.
+
+5. Tabular handling:
+Input: `\begin{tabular}{|c|c|} A & B \\ \hline C & D \end{tabular}`
+Expected: Renders a sanitized HTML table with row/cell structure preserved.
+
+6. Link sanitization:
+Input: `\href{javascript:alert(1)}{Click}`
+Expected: Unsafe protocols are stripped; only safe URLs (`http`, `https`, `mailto`, `#`, safe relative) are allowed.
+
+7. Malformed/unsupported TeX:
+Input: broken or unsupported commands
+Expected: Best-effort rendering with escaped fallback text, without unsafe HTML injection.
+
 ## Development
 
 ```bash
@@ -88,3 +126,7 @@ Publish checks:
 ```bash
 npm run prepublishOnly
 ```
+
+## Contributing
+
+See `CONTRIBUTING.md` for setup, workflow, test expectations, and pull request guidelines.
