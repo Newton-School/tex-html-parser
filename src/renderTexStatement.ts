@@ -13,6 +13,11 @@ export type RenderTexStatementOptions = {
   typeset?: boolean
   // Optional container(s) to scope MathJax typesetting instead of whole document.
   typesetTarget?: Element | Element[] | null
+  // When true, single newlines within a paragraph are emitted as <br/> instead
+  // of collapsing to whitespace. Blank-line paragraph breaks are unchanged.
+  // Useful for non-prose payloads (e.g. literal sample I/O) that are passed
+  // through the renderer but rely on line breaks for structure.
+  preserveNewlines?: boolean
 }
 
 type MathJaxLike = {
@@ -106,7 +111,7 @@ const MATHJAX_LOAD_TIMEOUT_MS = 8000
  */
 export function renderTexStatement(tex: string, options: RenderTexStatementOptions = {}): string {
   const normalized = String(tex ?? '').replace(/\r\n/g, '\n')
-  const rawHtml = parseBlocks(normalized).join('')
+  const rawHtml = parseBlocks(normalized, { preserveNewlines: options.preserveNewlines === true }).join('')
   const html = sanitizeHtml(rawHtml)
 
   if (options.typeset) {
@@ -127,11 +132,13 @@ function normalizeTypesetTargets(typesetTarget: RenderTexStatementOptions['types
   return targets.length > 0 ? targets : undefined
 }
 
+type BlockContext = { preserveNewlines: boolean }
+
 /**
  * Parse top-level block structures (paragraphs, environments, epigraph).
  * Falls back to paragraph rendering if malformed blocks are encountered.
  */
-function parseBlocks(text: string): string[] {
+function parseBlocks(text: string, context: BlockContext): string[] {
   const html: string[] = []
   const blockStartRegex = /\\begin\{(itemize|enumerate|lstlisting|center|tabular)\}|\\epigraph\{/g
   let last = 0
@@ -139,14 +146,14 @@ function parseBlocks(text: string): string[] {
 
   while ((match = blockStartRegex.exec(text)) !== null) {
     if (match.index > last) {
-      html.push(...renderParagraphChunk(text.slice(last, match.index)))
+      html.push(...renderParagraphChunk(text.slice(last, match.index), context))
     }
 
     if (match[1]) {
       const envName = match[1] as BlockEnvironment
       const env = findEnvironment(text, match.index, envName)
       if (!env) {
-        html.push(...renderParagraphChunk(text.slice(match.index)))
+        html.push(...renderParagraphChunk(text.slice(match.index), context))
         break
       }
 
@@ -169,7 +176,7 @@ function parseBlocks(text: string): string[] {
         html.push(`<pre><code>${escapeHtml(code)}</code></pre>`)
       } else if (envName === 'center') {
         const centered = text.slice(env.innerStart, env.innerEnd)
-        html.push(`<div>${parseBlocks(centered).join('')}</div>`)
+        html.push(`<div>${parseBlocks(centered, context).join('')}</div>`)
       }
 
       last = env.end
@@ -180,7 +187,7 @@ function parseBlocks(text: string): string[] {
     if (text.startsWith('\\epigraph{', match.index)) {
       const first = parseBracedWithWhitespace(text, match.index + '\\epigraph'.length)
       if (!first) {
-        html.push(...renderParagraphChunk(text.slice(match.index, match.index + '\\epigraph'.length)))
+        html.push(...renderParagraphChunk(text.slice(match.index, match.index + '\\epigraph'.length), context))
         last = match.index + '\\epigraph'.length
         blockStartRegex.lastIndex = last
         continue
@@ -188,7 +195,7 @@ function parseBlocks(text: string): string[] {
 
       const second = parseBracedWithWhitespace(text, first.end)
       if (!second) {
-        html.push(...renderParagraphChunk(text.slice(match.index, first.end)))
+        html.push(...renderParagraphChunk(text.slice(match.index, first.end), context))
         last = first.end
         blockStartRegex.lastIndex = last
         continue
@@ -207,7 +214,7 @@ function parseBlocks(text: string): string[] {
   }
 
   if (last < text.length) {
-    html.push(...renderParagraphChunk(text.slice(last)))
+    html.push(...renderParagraphChunk(text.slice(last), context))
   }
 
   return html
@@ -254,23 +261,23 @@ function findEnvironment(text: string, beginIndex: number, envName: BlockEnviron
   return null
 }
 
-function renderParagraphChunk(chunk: string): string[] {
+function renderParagraphChunk(chunk: string, context: BlockContext): string[] {
   const out: string[] = []
   const separator = /\n\s*\n/g
   let cursor = 0
   let match: RegExpExecArray | null
 
   while ((match = separator.exec(chunk)) !== null) {
-    pushParagraph(out, chunk.slice(cursor, match.index))
+    pushParagraph(out, chunk.slice(cursor, match.index), context)
     cursor = match.index + match[0].length
   }
 
-  pushParagraph(out, chunk.slice(cursor))
+  pushParagraph(out, chunk.slice(cursor), context)
   return out
 }
 
 // This renderer uses a blank line as a paragraph separator.
-function pushParagraph(output: string[], paragraphRaw: string): void {
+function pushParagraph(output: string[], paragraphRaw: string, context: BlockContext): void {
   const leadingWhitespace = paragraphRaw.match(/^\s*/)?.[0].length ?? 0
   const trailingWhitespace = paragraphRaw.match(/\s*$/)?.[0].length ?? 0
 
@@ -279,8 +286,13 @@ function pushParagraph(output: string[], paragraphRaw: string): void {
     return
   }
 
-  const normalized = trimmed.replace(/\n/g, ' ')
-  const inline = parseInline(normalized)
+  const inline = context.preserveNewlines
+    ? trimmed
+        .split('\n')
+        .map(line => parseInline(line))
+        .join('<br/>')
+    : parseInline(trimmed.replace(/\n/g, ' '))
+
   if (inline.trim()) {
     output.push(`<p>${inline}</p>`)
   }

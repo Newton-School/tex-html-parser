@@ -41,6 +41,14 @@ const html = renderTexStatement(tex, {
 })
 ```
 
+To preserve single newlines as `<br/>` within paragraphs (useful for literal payloads such as sample input/output blocks):
+
+```ts
+const html = renderTexStatement(tex, { preserveNewlines: true })
+```
+
+Blank-line paragraph splitting is unchanged. By default, single newlines collapse to whitespace per TeX prose convention.
+
 MathJax loader security notes:
 
 - The package injects a pinned MathJax CDN URL (`jsDelivr`) at runtime.
