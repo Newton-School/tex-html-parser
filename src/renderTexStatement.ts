@@ -74,6 +74,7 @@ const ALLOWED_TAGS = new Set([
   'div',
   'em',
   'footer',
+  'img',
   'li',
   'ol',
   'p',
@@ -92,6 +93,7 @@ const ALLOWED_TAGS = new Set([
 // Attribute allowlist per tag. Any missing attribute is dropped.
 const ALLOWED_ATTRS_BY_TAG: Record<string, Set<string>> = {
   a: new Set(['href', 'target', 'rel']),
+  img: new Set(['src', 'alt']),
   td: new Set(['colspan', 'rowspan']),
 }
 
@@ -570,7 +572,36 @@ function parseInlineCommand(text: string, start: number): InlineCommandResult | 
     }
   }
 
+  if (command === 'includegraphics') {
+    const arg = parseBracedWithWhitespace(text, skipOptionalBracketed(text, cursor))
+    if (!arg) {
+      return { html: escapeHtml('\\includegraphics'), end: cursor }
+    }
+
+    const src = sanitizeImageSrc(arg.content.trim())
+    if (!src) {
+      return { html: escapeHtml(text.slice(start, arg.end)), end: arg.end }
+    }
+
+    return { html: `<img src="${escapeHtml(src)}" alt="">`, end: arg.end }
+  }
+
   return { html: escapeHtml(`\\${command}`), end: cursor }
+}
+
+// Skip an optional [...] argument (e.g. `\\includegraphics[width=5cm]{...}`) and return the index after it.
+function skipOptionalBracketed(text: string, start: number): number {
+  let cursor = start
+  while (cursor < text.length && /\s/.test(text[cursor])) {
+    cursor += 1
+  }
+
+  if (text[cursor] !== '[') {
+    return start
+  }
+
+  const close = text.indexOf(']', cursor + 1)
+  return close === -1 ? start : close + 1
 }
 
 // Parse a braced argument while allowing optional whitespace before it.
@@ -765,6 +796,19 @@ function sanitizeTag(rawTag: string): string {
       continue
     }
 
+    if (tag === 'img' && name === 'src') {
+      const safeSrc = sanitizeImageSrc(value)
+      if (safeSrc) {
+        sanitizedAttrs.push(['src', safeSrc])
+      }
+      continue
+    }
+
+    if (tag === 'img' && name === 'alt') {
+      sanitizedAttrs.push(['alt', value])
+      continue
+    }
+
     if (tag === 'td' && (name === 'colspan' || name === 'rowspan')) {
       const parsed = Number.parseInt(value, 10)
       if (Number.isFinite(parsed) && parsed > 0) {
@@ -794,7 +838,7 @@ function parseAttributes(attributeText: string): Array<[string, string]> {
     const rawName = match[1]
     const name = rawName.toLowerCase()
     const value = match[2] ?? match[3] ?? match[4] ?? ''
-    attributes.push([name, value])
+    attributes.push([name, unescapeHtml(value)])
   }
 
   return attributes
@@ -810,6 +854,22 @@ function sanitizeUrl(url: string): string {
   const isSafeRelativePath = /^\/(?!\/)/.test(trimmed)
 
   return isAllowedProtocol || isSafeRelativePath ? trimmed : ''
+}
+
+// Images load without a click, so only absolute https sources are allowed.
+function sanitizeImageSrc(url: string): string {
+  const trimmed = String(url ?? '').trim()
+  return /^https:\/\//i.test(trimmed) ? trimmed : ''
+}
+
+// Reverse escapeHtml so sanitizeTag does not escape attribute values twice.
+function unescapeHtml(value: string): string {
+  return String(value)
+    .replaceAll('&#39;', "'")
+    .replaceAll('&quot;', '"')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&amp;', '&')
 }
 
 function escapeHtml(value: string): string {

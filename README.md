@@ -75,13 +75,13 @@ function Statement({ tex }: { tex: string }) {
 - Environments: `itemize`, `enumerate`, `lstlisting`, `center`, `tabular`
 - Table helpers: `\hline`, `\cline`, `\multicolumn`, `\multirow`
 - Links: `\url`, `\href`
+- Images: `\includegraphics{https://...}` (options in `[...]` are ignored; only absolute `https` sources render)
 - `\epigraph`
 - Typography replacements for TeX quote/dash tokens
 
 ## Not Supported (Dropped)
 
 - `defs.toml` custom command expansion
-- `\includegraphics`
 - `\def \htmlPixelsInCm`
 - React preview component export
 - CSS export
