@@ -58,3 +58,33 @@ test('preserveNewlines keeps blank-line paragraph splitting intact', () => {
   const html = renderTexStatement('a\nb\n\nc\nd', { preserveNewlines: true })
   assert.equal(html, '<p>a<br/>b</p><p>c<br/>d</p>')
 })
+
+test('renders includegraphics as an image', () => {
+  const html = renderTexStatement('\\includegraphics{https://cdn.example.com/road.png}')
+  assert.equal(html, '<p><img src="https://cdn.example.com/road.png" alt=""></p>')
+})
+
+test('ignores includegraphics options', () => {
+  const html = renderTexStatement('\\includegraphics[width=0.5\\textwidth]{https://cdn.example.com/road.png}')
+  assert.equal(html, '<p><img src="https://cdn.example.com/road.png" alt=""></p>')
+})
+
+test('keeps includegraphics with an unsafe source as text', () => {
+  const html = renderTexStatement('\\includegraphics{javascript:alert(1)}')
+  assert.equal(html, '<p>\\includegraphics{javascript:alert(1)}</p>')
+})
+
+test('keeps includegraphics with a relative source as text', () => {
+  const html = renderTexStatement('\\includegraphics{road.png}')
+  assert.equal(html, '<p>\\includegraphics{road.png}</p>')
+})
+
+test('escapes ampersands in image sources once', () => {
+  const html = renderTexStatement('\\includegraphics{https://cdn.example.com/road.png?w=1&h=2}')
+  assert.equal(html, '<p><img src="https://cdn.example.com/road.png?w=1&amp;h=2" alt=""></p>')
+})
+
+test('keeps quotes in image sources inside the attribute', () => {
+  const html = renderTexStatement('\\includegraphics{https://cdn.example.com/a.png" onerror="alert(1)}')
+  assert.equal(html, '<p><img src="https://cdn.example.com/a.png&quot; onerror=&quot;alert(1)" alt=""></p>')
+})
